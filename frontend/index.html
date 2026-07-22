@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>SmartSupply-AI | Medicine Inventory Intelligence</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root{--primary:#1a237e;--accent:#00bcd4;--success:#43a047;--warn:#fb8c00;--danger:#e53935;--bg:#f0f4f8;}
+body{font-family:'Segoe UI',sans-serif;background:var(--bg);margin:0;}
+.sidebar{width:250px;min-height:100vh;background:var(--primary);color:#fff;padding:0;position:fixed;top:0;left:0;z-index:100;display:flex;flex-direction:column;}
+.sidebar-logo{padding:24px 20px 16px;border-bottom:1px solid rgba(255,255,255,.1);}
+.sidebar-logo h5{margin:0;font-weight:700;letter-spacing:1px;}
+.sidebar-logo small{opacity:.6;font-size:11px;}
+.nav-link{color:rgba(255,255,255,.75)!important;padding:11px 20px;border-radius:0;font-size:14px;display:flex;align-items:center;gap:10px;}
+.nav-link:hover,.nav-link.active{background:rgba(255,255,255,.12);color:#fff!important;}
+.nav-section{padding:10px 20px 4px;font-size:10px;text-transform:uppercase;opacity:.4;letter-spacing:1.5px;}
+.main{margin-left:250px;min-height:100vh;}
+.topbar{background:#fff;padding:14px 28px;border-bottom:1px solid #e0e0e0;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;}
+.topbar h5{margin:0;font-weight:600;color:var(--primary);}
+.content{padding:28px;}
+.card{border:none;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.07);}
+.card-header{border-radius:12px 12px 0 0!important;font-weight:600;}
+.stat-card{border-radius:12px;padding:20px;color:#fff;box-shadow:0 4px 12px rgba(0,0,0,.15);}
+.stat-card h2{font-size:2.2rem;font-weight:700;margin:0;}
+.stat-card p{margin:4px 0 0;opacity:.85;font-size:13px;}
+.badge-season{padding:5px 12px;border-radius:20px;font-size:12px;}
+.btn-primary-custom{background:var(--primary);color:#fff;border:none;border-radius:8px;padding:9px 20px;}
+.btn-primary-custom:hover{background:#283593;color:#fff;}
+.section{display:none;}
+.section.active{display:block;}
+.loader{display:none;text-align:center;padding:40px;}
+.loader.active{display:block;}
+select.form-select,input.form-control{border-radius:8px;}
+.reward-chart-container{position:relative;height:220px;}
+.table thead th{background:#f5f5f5;font-size:13px;font-weight:600;}
+.badge-monsoon{background:#1565c0;color:#fff;}
+.badge-summer{background:#e65100;color:#fff;}
+.badge-winter{background:#0277bd;color:#fff;}
+.badge-spring{background:#2e7d32;color:#fff;}
+.badge-autumn{background:#6a1b9a;color:#fff;}
+.badge-post-monsoon{background:#00695c;color:#fff;}
+.tag{display:inline-block;padding:3px 10px;border-radius:12px;font-size:11px;margin:2px;}
+.api-url{background:#263238;color:#80cbc4;padding:6px 14px;border-radius:6px;font-size:12px;font-family:monospace;}
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<div class="sidebar">
+  <div class="sidebar-logo">
+    <h5>🧬 SmartSupply-AI</h5>
+    <small>Medicine Inventory Intelligence</small>
+  </div>
+  <nav class="mt-2">
+    <div class="nav-section">Overview</div>
+    <a class="nav-link active" onclick="showSection('dashboard')" href="#">📊 Dashboard</a>
+    <a class="nav-link" onclick="showSection('regions')" href="#">🗺️ Regions</a>
+    <div class="nav-section">Q-Learning</div>
+    <a class="nav-link" onclick="showSection('optimize')" href="#">🤖 Optimize Inventory</a>
+    <a class="nav-link" onclick="showSection('forecast')" href="#">📈 Demand Forecast</a>
+    <div class="nav-section">Analytics</div>
+    <a class="nav-link" onclick="showSection('sales')" href="#">💰 Sales Analysis</a>
+    <a class="nav-link" onclick="showSection('diseases')" href="#">🦠 Disease & Season</a>
+    <a class="nav-link" onclick="showSection('medicines')" href="#">💊 Medicine Search</a>
+    <div class="nav-section">System</div>
+    <a class="nav-link" onclick="showSection('api')" href="#">⚡ API Reference</a>
+  </nav>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+<div class="topbar">
+  <h5 id="page-title">Dashboard</h5>
+  <div class="d-flex align-items-center gap-3">
+    <select id="global-region" class="form-select form-select-sm" style="width:140px;" onchange="onRegionChange()">
+      <option value="">All Regions</option>
+      <option>North</option><option>South</option><option>East</option>
+      <option>West</option><option>Central</option><option>Northeast</option>
+    </select>
+    <span class="badge bg-success">Live</span>
+  </div>
+</div>
+
+<div class="content">
+
+<!-- ═══════════════════ DASHBOARD ═══════════════════ -->
+<div id="sec-dashboard" class="section active">
+  <div class="row g-3 mb-4">
+    <div class="col-md-3"><div class="stat-card" style="background:linear-gradient(135deg,#1a237e,#3949ab)">
+      <h2>6</h2><p>Regions Covered</p></div></div>
+    <div class="col-md-3"><div class="stat-card" style="background:linear-gradient(135deg,#00695c,#00bcd4)">
+      <h2>30</h2><p>Districts Tracked</p></div></div>
+    <div class="col-md-3"><div class="stat-card" style="background:linear-gradient(135deg,#e65100,#fb8c00)">
+      <h2>12</h2><p>Medicine Categories</p></div></div>
+    <div class="col-md-3"><div class="stat-card" style="background:linear-gradient(135deg,#4a148c,#7b1fa2)">
+      <h2>Q-RL</h2><p>Adaptive Reorder Engine</p></div></div>
+  </div>
+
+  <div class="row g-3 mb-4">
+    <div class="col-md-8">
+      <div class="card h-100">
+        <div class="card-header bg-white">📊 Demand Overview — All Regions (Monthly Avg)</div>
+        <div class="card-body"><canvas id="dashDemandChart" height="180"></canvas></div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card h-100">
+        <div class="card-header bg-white">🌡️ Seasonal Disease Map</div>
+        <div class="card-body" id="seasonDiseaseBox">
+          <div id="season-disease-list"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-md-6">
+      <div class="card">
+        <div class="card-header bg-white">🗺️ Region Demand Heatmap</div>
+        <div class="card-body"><canvas id="regionHeatmap" height="180"></canvas></div>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="card">
+        <div class="card-header bg-white">💊 Top Medicine Categories</div>
+        <div class="card-body"><canvas id="medCatChart" height="180"></canvas></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ REGIONS ═══════════════════ -->
+<div id="sec-regions" class="section">
+  <div class="row mb-3">
+    <div class="col">
+      <h4>Regional Overview</h4>
+      <div class="d-flex gap-2 flex-wrap" id="region-tabs">
+        <button class="btn btn-sm btn-primary-custom" onclick="loadRegion('North')">North</button>
+        <button class="btn btn-sm btn-outline-secondary" onclick="loadRegion('South')">South</button>
+        <button class="btn btn-sm btn-outline-secondary" onclick="loadRegion('East')">East</button>
+        <button class="btn btn-sm btn-outline-secondary" onclick="loadRegion('West')">West</button>
+        <button class="btn btn-sm btn-outline-secondary" onclick="loadRegion('Central')">Central</button>
+        <button class="btn btn-sm btn-outline-secondary" onclick="loadRegion('Northeast')">Northeast</button>
+      </div>
+    </div>
+  </div>
+  <div class="loader active" id="region-loader">⏳ Loading region data from Q-learning engine...</div>
+  <div id="region-content"></div>
+</div>
+
+<!-- ═══════════════════ OPTIMIZE ═══════════════════ -->
+<div id="sec-optimize" class="section">
+  <div class="card mb-4">
+    <div class="card-header" style="background:var(--primary);color:#fff;">🤖 Q-Learning Inventory Optimizer</div>
+    <div class="card-body">
+      <div class="row g-3">
+        <div class="col-md-3">
+          <label class="form-label fw-semibold">Region</label>
+          <select id="opt-region" class="form-select" onchange="updateDistrictDropdown()">
+            <option>North</option><option>South</option><option>East</option>
+            <option>West</option><option>Central</option><option>Northeast</option>
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label fw-semibold">District</label>
+          <select id="opt-district" class="form-select"></select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label fw-semibold">Medicine Category</label>
+          <select id="opt-medicine" class="form-select">
+            <option>Antipyretics</option><option>Antibiotics</option>
+            <option>Bronchodilators</option><option>Antihistamines</option>
+            <option>ORS &amp; Antidiarrheals</option><option>Antimalarials</option>
+            <option>IV Fluids</option><option>Eye Drops</option>
+            <option>Antidiabetics</option><option>Cardiovascular</option>
+            <option>Vitamins &amp; Supplements</option><option>Analgesics</option>
+          </select>
+        </div>
+        <div class="col-md-1">
+          <label class="form-label fw-semibold">Episodes</label>
+          <input id="opt-episodes" type="number" class="form-control" value="300" min="50" max="1000"/>
+        </div>
+        <div class="col-md-2 d-flex align-items-end">
+          <button class="btn btn-primary-custom w-100" onclick="runOptimization()">▶ Run Q-Learning</button>
+        </div>
+      </div>
+      <div class="row g-3 mt-1">
+        <div class="col-md-3">
+          <label class="form-label">Holding Cost / unit</label>
+          <input id="opt-holding" type="number" class="form-control" value="2.0" step="0.5"/>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Shortage Cost / unit</label>
+          <input id="opt-shortage" type="number" class="form-control" value="15.0" step="1"/>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="loader" id="opt-loader">
+    <div class="spinner-border text-primary" role="status"></div>
+    <p class="mt-2 text-muted">Training Q-Learning agent... (this may take a few seconds)</p>
+  </div>
+
+  <div id="opt-results" style="display:none;">
+    <div class="row g-3 mb-3" id="opt-kpis"></div>
+    <div class="row g-3 mb-3">
+      <div class="col-md-6">
+        <div class="card"><div class="card-header bg-white">📈 Demand vs Reorder Quantity</div>
+        <div class="card-body"><canvas id="optDemandChart" height="200"></canvas></div></div>
+      </div>
+      <div class="col-md-6">
+        <div class="card"><div class="card-header bg-white">🏆 Reward per Episode (Training Curve)</div>
+        <div class="card-body reward-chart-container"><canvas id="rewardChart"></canvas></div></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header bg-white">📋 Reorder Recommendations</div>
+      <div class="card-body p-0">
+        <div style="max-height:400px;overflow-y:auto;">
+          <table class="table table-sm table-hover mb-0">
+            <thead><tr>
+              <th>Date</th><th>Season</th><th>Weather</th><th>Disease</th>
+              <th>Actual Demand</th><th>Reorder Qty</th><th>Stockout</th>
+            </tr></thead>
+            <tbody id="opt-table"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ FORECAST ═══════════════════ -->
+<div id="sec-forecast" class="section">
+  <div class="card mb-4">
+    <div class="card-header bg-white fw-semibold">📈 Demand Forecasting</div>
+    <div class="card-body">
+      <div class="row g-3">
+        <div class="col-md-3">
+          <select id="fc-region" class="form-select" onchange="updateFcDistrictDropdown()">
+            <option>North</option><option>South</option><option>East</option>
+            <option>West</option><option>Central</option><option>Northeast</option>
+          </select>
+        </div>
+        <div class="col-md-3">
+          <select id="fc-district" class="form-select"></select>
+        </div>
+        <div class="col-md-3">
+          <select id="fc-medicine" class="form-select">
+            <option>Antipyretics</option><option>Antibiotics</option>
+            <option>Bronchodilators</option><option>Antihistamines</option>
+            <option>ORS &amp; Antidiarrheals</option><option>Antimalarials</option>
+          </select>
+        </div>
+        <div class="col-md-3">
+          <button class="btn btn-primary-custom w-100" onclick="runForecast()">Generate Forecast</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="loader" id="fc-loader">⏳ Computing forecasts...</div>
+  <div id="fc-results" style="display:none;">
+    <div class="row g-3 mb-3" id="fc-metrics"></div>
+    <div class="card mb-3">
+      <div class="card-header bg-white">Actual vs Forecast (ES / MA / Trend)</div>
+      <div class="card-body"><canvas id="forecastChart" height="200"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ SALES ═══════════════════ -->
+<div id="sec-sales" class="section">
+  <h4 class="mb-3">Sales Analysis by Region & District</h4>
+  <div class="row g-3 mb-3">
+    <div class="col-md-3">
+      <select id="sales-region" class="form-select" onchange="updateSalesDistrictDropdown()">
+        <option>North</option><option>South</option><option>East</option>
+        <option>West</option><option>Central</option><option>Northeast</option>
+      </select>
+    </div>
+    <div class="col-md-3"><select id="sales-district" class="form-select"></select></div>
+    <div class="col-md-3">
+      <button class="btn btn-primary-custom" onclick="runSalesAnalysis()">Load Sales Data</button>
+    </div>
+  </div>
+  <div class="loader" id="sales-loader">⏳ Loading sales data...</div>
+  <div id="sales-results" style="display:none;">
+    <div class="row g-3">
+      <div class="col-md-8">
+        <div class="card"><div class="card-header bg-white">Monthly Sales by Medicine Category</div>
+        <div class="card-body"><canvas id="salesChart" height="220"></canvas></div></div>
+      </div>
+      <div class="col-md-4">
+        <div class="card"><div class="card-header bg-white">Category Distribution</div>
+        <div class="card-body"><canvas id="salesPieChart" height="220"></canvas></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ DISEASES ═══════════════════ -->
+<div id="sec-diseases" class="section">
+  <h4 class="mb-3">Seasonal Diseases & Medicine Demand Impact</h4>
+  <div class="row g-3 mb-4">
+    <div class="col-md-6">
+      <div class="card">
+        <div class="card-header bg-white">🦠 Disease → Medicine Mapping</div>
+        <div class="card-body" id="disease-map-box"></div>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="card">
+        <div class="card-header bg-white">🌤️ Weather Profile by Region</div>
+        <div class="card-body" id="weather-box"></div>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-header bg-white">Demand Boost by Season</div>
+    <div class="card-body"><canvas id="seasonBoostChart" height="160"></canvas></div>
+  </div>
+</div>
+
+<!-- ═══════════════════ MEDICINES ═══════════════════ -->
+<div id="sec-medicines" class="section">
+  <div class="card mb-3">
+    <div class="card-header bg-white fw-semibold">💊 Medicine Database Search</div>
+    <div class="card-body">
+      <div class="input-group">
+        <input id="med-search-input" class="form-control" placeholder="Search medicine name or category..."/>
+        <button class="btn btn-primary-custom" onclick="searchMedicines()">Search</button>
+      </div>
+    </div>
+  </div>
+  <div id="med-results"></div>
+</div>
+
+<!-- ═══════════════════ API ═══════════════════ -->
+<div id="sec-api" class="section">
+  <h4 class="mb-3">⚡ API Reference</h4>
+  <div class="card">
+    <div class="card-body">
+      <p class="text-muted">Base URL: <code>http://localhost:8000/api/v1</code></p>
+      <table class="table">
+        <thead><tr><th>Method</th><th>Endpoint</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><span class="badge bg-success">GET</span></td><td><code>/inventory/regions</code></td><td>List all regions & districts</td></tr>
+          <tr><td><span class="badge bg-success">GET</span></td><td><code>/inventory/region/{region}</code></td><td>Region dashboard data</td></tr>
+          <tr><td><span class="badge bg-success">GET</span></td><td><code>/inventory/district/{region}/{district}</code></td><td>District summary</td></tr>
+          <tr><td><span class="badge bg-success">GET</span></td><td><code>/inventory/optimize/{region}/{district}/{category}</code></td><td>Run Q-Learning optimization</td></tr>
+          <tr><td><span class="badge bg-success">GET</span></td><td><code>/inventory/categories</code></td><td>Medicine categories & disease map</td></tr>
+          <tr><td><span class="badge bg-success">GET</span></td><td><code>/analytics/sales/{region}/{district}</code></td><td>Monthly sales data</td></tr>
+          <tr><td><span class="badge bg-success">GET</span></td><td><code>/analytics/compare/regions</code></td><td>Cross-region demand comparison</td></tr>
+          <tr><td><span class="badge bg-success">GET</span></td><td><code>/analytics/disease-impact/{season}</code></td><td>Disease-medicine demand impact</td></tr>
+          <tr><td><span class="badge bg-success">GET</span></td><td><code>/analytics/heatmap/demand</code></td><td>Monthly demand heatmap</td></tr>
+          <tr><td><span class="badge bg-success">GET</span></td><td><code>/medicines/search?q=paracetamol</code></td><td>Search medicine DB</td></tr>
+          <tr><td><span class="badge bg-success">GET</span></td><td><code>/medicines/category/{category}</code></td><td>Medicines by category</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+</div><!-- content -->
+</div><!-- main -->
+
+<script>
+/* ═══════════════════════════════════════════════════════
+   CONFIG & CONSTANTS
+═══════════════════════════════════════════════════════ */
+const API_BASE = "http://localhost:8000/api/v1";
+
+const DISTRICTS = {
+  "North":     ["Delhi","Lucknow","Chandigarh","Jaipur","Amritsar"],
+  "South":     ["Chennai","Bangalore","Hyderabad","Kochi","Coimbatore"],
+  "East":      ["Kolkata","Patna","Bhubaneswar","Ranchi","Dhanbad"],
+  "West":      ["Mumbai","Pune","Ahmedabad","Surat","Nagpur"],
+  "Central":   ["Bhopal","Indore","Raipur","Jabalpur","Gwalior"],
+  "Northeast": ["Shillong","Imphal","Agartala","Aizawl","Kohima"],
+};
+
+const SEASONAL_DISEASES = {
+  "Winter":["Influenza","Pneumonia","Bronchitis","Common Cold"],
+  "Spring":["Allergic Rhinitis","Conjunctivitis","Asthma"],
+  "Summer":["Diarrhea","Typhoid","Heat Stroke","Food Poisoning"],
+  "Monsoon":["Malaria","Dengue","Cholera","Leptospirosis","Typhoid"],
+  "Post-Monsoon":["Dengue","Chikungunya","Viral Fever","Malaria"],
+  "Autumn":["Influenza","Viral Fever","Asthma"],
+};
+
+const WEATHER = {
+  "North":{"Summer":"Hot & Dry","Monsoon":"Heavy Rain","Winter":"Cold & Foggy","Spring":"Warm","Post-Monsoon":"Pleasant","Autumn":"Cool"},
+  "South":{"Summer":"Hot & Humid","Monsoon":"Moderate Rain","Winter":"Mild","Spring":"Warm & Dry","Post-Monsoon":"Warm","Autumn":"Mild"},
+  "East": {"Summer":"Hot & Humid","Monsoon":"Very Heavy Rain","Winter":"Cool","Spring":"Warm & Humid","Post-Monsoon":"Warm","Autumn":"Cool & Humid"},
+  "West": {"Summer":"Hot & Dry","Monsoon":"Moderate Rain","Winter":"Pleasant","Spring":"Warm","Post-Monsoon":"Warm","Autumn":"Pleasant"},
+  "Central":{"Summer":"Extreme Heat","Monsoon":"Moderate Rain","Winter":"Cool","Spring":"Hot","Post-Monsoon":"Warm","Autumn":"Cool"},
+  "Northeast":{"Summer":"Warm & Humid","Monsoon":"Extremely Heavy Rain","Winter":"Very Cold","Spring":"Mild","Post-Monsoon":"Cool","Autumn":"Cold"},
+};
+
+const MED_CATS = ["Antipyretics","Antibiotics","Bronchodilators","Antihistamines",
+  "ORS & Antidiarrheals","Antimalarials","IV Fluids","Eye Drops",
+  "Antidiabetics","Cardiovascular","Vitamins & Supplements","Analgesics"];
+
+const COLORS = ["#1a237e","#00bcd4","#43a047","#fb8c00","#e53935","#8e24aa",
+  "#00897b","#3949ab","#f4511e","#039be5","#7cb342","#6d4c41"];
+
+const SEASON_COLORS = {
+  "Winter":"#0277bd","Spring":"#2e7d32","Summer":"#e65100",
+  "Monsoon":"#1565c0","Post-Monsoon":"#00695c","Autumn":"#6a1b9a"
+};
+
+/* ═══════════════════════════════════════════════════════
+   Q-LEARNING ENGINE (Embedded — works without backend)
+═══════════════════════════════════════════════════════ */
+const SEASON_IDX = {"Winter":0,"Spring":1,"Summer":2,"Monsoon":3,"Post-Monsoon":4,"Autumn":5};
+const SEASONS_BY_MONTH = {1:"Winter",2:"Winter",3:"Spring",4:"Spring",5:"Summer",
+  6:"Monsoon",7:"Monsoon",8:"Monsoon",9:"Post-Monsoon",10:"Post-Monsoon",11:"Autumn",12:"Winter"};
+const DISEASE_LIST = ["Influenza","Pneumonia","Bronchitis","Common Cold","Allergic Rhinitis",
+  "Conjunctivitis","Asthma","Diarrhea","Typhoid","Heat Stroke","Food Poisoning",
+  "Malaria","Dengue","Cholera","Leptospirosis","Chikungunya","Viral Fever","None"];
+const DISEASE_IDX = Object.fromEntries(DISEASE_LIST.map((d,i)=>[d,i]));
+
+const BASE_DEMANDS = {
+  "Antipyretics":{base:400,std:80},"Antibiotics":{base:300,std:60},
+  "Bronchodilators":{base:180,std:40},"Antihistamines":{base:220,std:50},
+  "ORS & Antidiarrheals":{base:250,std:70},"Antimalarials":{base:150,std:50},
+  "IV Fluids":{base:100,std:30},"Eye Drops":{base:120,std:25},
+  "Antidiabetics":{base:350,std:40},"Cardiovascular":{base:280,std:35},
+  "Vitamins & Supplements":{base:200,std:45},"Analgesics":{base:320,std:55},
+};
+const REGION_MULT = {"North":1.3,"South":1.2,"East":0.9,"West":1.4,"Central":0.8,"Northeast":0.6};
+const DISEASE_MED_MAP = {
+  "Influenza":"Antipyretics","Pneumonia":"Antibiotics","Bronchitis":"Bronchodilators",
+  "Common Cold":"Antihistamines","Allergic Rhinitis":"Antihistamines","Conjunctivitis":"Eye Drops",
+  "Asthma":"Bronchodilators","Diarrhea":"ORS & Antidiarrheals","Typhoid":"Antibiotics",
+  "Heat Stroke":"IV Fluids","Food Poisoning":"ORS & Antidiarrheals","Malaria":"Antimalarials",
+  "Dengue":"Antipyretics","Cholera":"ORS & Antidiarrheals","Leptospirosis":"Antibiotics",
+  "Chikungunya":"Antipyretics","Viral Fever":"Antipyretics",
+};
+
+const SEASON_BOOST = {"Monsoon":1.4,"Post-Monsoon":1.25,"Summer":1.2,"Winter":1.15,"Spring":1.05,"Autumn":1.1};
+
+function gaussRand(mean,std,seed){
+  // Simple seeded pseudo-normal using Box-Muller
+  const x = ((seed*16807)%2147483647)/2147483647;
+  const y = ((seed*48271)%2147483647)/2147483647;
+  const z = Math.sqrt(-2*Math.log(Math.max(x,0.0001)))*Math.cos(2*Math.PI*y);
+  return Math.round(mean + std*z);
+}
+
+function generateDemand(region, district, medCat, years=4){
+  let seed = 0;
+  for(const c of (region+district+medCat)) seed = (seed*31 + c.charCodeAt(0)) & 0x7fffffff;
+  const cfg = BASE_DEMANDS[medCat] || {base:200,std:40};
+  const rMult = REGION_MULT[region] || 1.0;
+  const dates=[], demand=[], seasons=[], diseases=[], weather=[], sIdx=[], dIdx=[];
+
+  for(let y=0;y<years;y++){
+    for(let m=1;m<=12;m++){
+      seed = (seed*1664525 + 1013904223) & 0x7fffffff;
+      const season  = SEASONS_BY_MONTH[m];
+      const w       = (WEATHER[region]||{})[season] || "Normal";
+      const disArr  = SEASONAL_DISEASES[season] || ["None"];
+      const disease = disArr[seed % disArr.length];
+      let mult      = (SEASON_BOOST[season]||1.0) * rMult;
+      if(disease !== "None" && DISEASE_MED_MAP[disease] === medCat) mult *= 1.6;
+      const dem = Math.max(10, gaussRand(cfg.base*mult, cfg.std*mult, seed));
+      dates.push(`${2021+y}-${String(m).padStart(2,'0')}-01`);
+      demand.push(dem); seasons.push(season); diseases.push(disease);
+      weather.push(w); sIdx.push(SEASON_IDX[season]||0);
+      dIdx.push(DISEASE_IDX[disease]||17);
+    }
+  }
+  return {dates, demand, seasons, diseases, weather, season_idx:sIdx, disease_idx:dIdx};
+}
+
+function expSmoothing(demand, alpha=0.35){
+  const f=[demand[0]];
+  for(let t=1;t<demand.length;t++) f.push(alpha*demand[t-1]+(1-alpha)*f[t-1]);
+  return f;
+}
+
+const ACTIONS = [0,50,100,150,200,300,400,500];
+
+class QLAgent {
+  constructor(nInv,nDem,alpha=0.1,gamma=0.95){
+    this.nInv=nInv; this.nDem=nDem; this.nS=6; this.nD=18; this.nA=ACTIONS.length;
+    this.alpha=alpha; this.gamma=gamma; this.eps=1.0;
+    const sz = nInv*nDem*6*18*this.nA;
+    this.Q = new Float32Array(sz).fill(0);
+  }
+  idx(ib,db,si,di,a){ return ((((ib*this.nDem+db)*6+si)*18+di)*this.nA)+a; }
+  chooseAction(ib,db,si,di){
+    if(Math.random()<this.eps) return Math.floor(Math.random()*this.nA);
+    let best=0,bestQ=-Infinity;
+    for(let a=0;a<this.nA;a++){const q=this.Q[this.idx(ib,db,si,di,a)]; if(q>bestQ){bestQ=q;best=a;}}
+    return best;
+  }
+  learn(ib,db,si,di,a,r,nib,ndb,nsi,ndi,done){
+    const i=this.idx(ib,db,si,di,a);
+    let maxNQ=0;
+    if(!done){for(let aa=0;aa<this.nA;aa++){const q=this.Q[this.idx(nib,ndb,nsi,ndi,aa)];if(q>maxNQ)maxNQ=q;}}
+    this.Q[i]+=this.alpha*(r+this.gamma*maxNQ-this.Q[i]);
+  }
+  bestAction(ib,db,si,di){
+    let best=0,bestQ=-Infinity;
+    for(let a=0;a<this.nA;a++){const q=this.Q[this.idx(ib,db,si,di,a)]; if(q>bestQ){bestQ=q;best=a;}}
+    return best;
+  }
+  decay(){ this.eps=Math.max(0.05,this.eps*0.995); }
+}
+
+function runQLearning(region, district, medCat, episodes=300, holdCost=2, shortCost=15){
+  const data     = generateDemand(region, district, medCat);
+  const forecast = expSmoothing(data.demand);
+  const maxDem   = Math.max(...data.demand);
+  const maxInv   = Math.ceil(maxDem*1.5/50)*50+50;
+  const invBsz   = Math.max(25, Math.floor(maxInv/10));
+  const demBsz   = Math.max(25, Math.floor(maxDem/10));
+  const nInv     = Math.floor(maxInv/invBsz)+1;
+  const nDem     = Math.floor(maxDem/demBsz)+1;
+  const n        = data.demand.length;
+  const initInv  = Math.floor(maxDem*0.6/50)*50;
+  const setupCost= 50, orderCostPU=0.5;
+
+  function bucket(v,bsz,nB){ return Math.min(nB-1,Math.floor(Math.max(0,v)/bsz)); }
+
+  const agent = new QLAgent(nInv, nDem);
+  const rewardPerEp=[];
+
+  for(let ep=0;ep<episodes;ep++){
+    let inv=initInv, totalR=0, t=0;
+    while(t<n-1){
+      const ib=bucket(inv,invBsz,nInv), db=bucket(forecast[t],demBsz,nDem);
+      const si=data.season_idx[t], di=data.disease_idx[t];
+      const aIdx=agent.chooseAction(ib,db,si,di);
+      const order=ACTIONS[aIdx];
+      const stock=Math.min(maxInv,inv+order);
+      const demand=data.demand[t];
+      const stockout=Math.max(0,demand-stock);
+      const leftover=Math.max(0,stock-demand);
+      const r=-(leftover*holdCost+stockout*shortCost+order*orderCostPU+(order>0?setupCost:0));
+      inv=leftover; t++;
+      const nib=bucket(inv,invBsz,nInv), ndb=bucket(forecast[t]||forecast[t-1],demBsz,nDem);
+      const nsi=data.season_idx[t]||si, ndi=data.disease_idx[t]||di;
+      agent.learn(ib,db,si,di,aIdx,r,nib,ndb,nsi,ndi,t>=n-1);
+      totalR+=r;
+    }
+    agent.decay();
+    rewardPerEp.push(totalR);
+  }
+
+  // Eval pass
+  let inv=initInv;
+  const orders=[],stockouts=[],sales_arr=[];
+  for(let t=0;t<n-1;t++){
+    const ib=bucket(inv,invBsz,nInv), db=bucket(forecast[t],demBsz,nDem);
+    const si=data.season_idx[t], di=data.disease_idx[t];
+    const aIdx=agent.bestAction(ib,db,si,di);
+    const order=ACTIONS[aIdx];
+    const stock=Math.min(maxInv,inv+order);
+    const demand=data.demand[t];
+    const stockout=Math.max(0,demand-stock);
+    const leftover=Math.max(0,stock-demand);
+    const s=Math.min(stock,demand);
+    inv=leftover;
+    orders.push(order); stockouts.push(stockout); sales_arr.push(s);
+  }
+
+  const svcLevel=(1-stockouts.filter(x=>x>0).length/Math.max(stockouts.length,1))*100;
+  return {
+    data, forecast, orders, stockouts, sales:sales_arr,
+    rewardsPerEpisode: rewardPerEp,
+    serviceLevel: svcLevel.toFixed(1),
+    avgOrder: (orders.reduce((a,b)=>a+b,0)/Math.max(orders.length,1)).toFixed(1),
+    totalReward: rewardPerEp.reduce((a,b)=>a+b,0).toFixed(0),
+  };
+}
+
+/* ═══════════════════════════════════════════════════════
+   CHARTS REGISTRY
+═══════════════════════════════════════════════════════ */
+const charts={};
+function destroyChart(id){ if(charts[id]){charts[id].destroy();delete charts[id];} }
+
+function mkChart(id,cfg){
+  destroyChart(id);
+  charts[id]=new Chart(document.getElementById(id).getContext('2d'),cfg);
+}
+
+/* ═══════════════════════════════════════════════════════
+   NAVIGATION
+═══════════════════════════════════════════════════════ */
+function showSection(name){
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.getElementById('sec-'+name).classList.add('active');
+  document.querySelectorAll('.nav-link').forEach(l=>l.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+  const titles={dashboard:"Dashboard",regions:"Regions",optimize:"Q-Learning Optimizer",
+    forecast:"Demand Forecast",sales:"Sales Analysis",diseases:"Disease & Season",
+    medicines:"Medicine Search",api:"API Reference"};
+  document.getElementById('page-title').textContent=titles[name]||name;
+}
+
+function onRegionChange(){
+  // placeholder — could filter dashboard
+}
+
+/* ═══════════════════════════════════════════════════════
+   DASHBOARD INIT
+═══════════════════════════════════════════════════════ */
+function initDashboard(){
+  // Season-Disease List
+  const box=document.getElementById('season-disease-list');
+  box.innerHTML=Object.entries(SEASONAL_DISEASES).map(([season,diseases])=>`
+    <div class="mb-2">
+      <span class="badge badge-${season.toLowerCase().replace(' ','-')} badge-season">${season}</span>
+      ${diseases.map(d=>`<span class="tag bg-light border">${d}</span>`).join('')}
+    </div>
+  `).join('');
+
+  // Dashboard demand chart — aggregate across regions
+  const labels=MED_CATS.map(c=>c.split(' ')[0]);
+  const regionDatasets=Object.entries(REGION_MULT).map(([reg,mult],i)=>({
+    label:reg,
+    data:MED_CATS.map(cat=>{
+      const cfg=BASE_DEMANDS[cat]||{base:200};
+      return Math.round(cfg.base*mult);
+    }),
+    backgroundColor:COLORS[i]+'44', borderColor:COLORS[i],
+    borderWidth:2, fill:false, tension:0.3,
+  }));
+  mkChart('dashDemandChart',{type:'bar',data:{labels,datasets:regionDatasets},
+    options:{responsive:true,plugins:{legend:{position:'top'}},scales:{y:{beginAtZero:true}}}});
+
+  // Region heatmap (radar)
+  mkChart('regionHeatmap',{type:'radar',
+    data:{labels:["Demand","Disease Burden","Stock Variability","Weather Risk","Coverage","Cost Efficiency"],
+      datasets:Object.entries(REGION_MULT).slice(0,4).map(([reg,mult],i)=>({
+        label:reg,
+        data:[mult*60,mult*50,mult*40,mult*55,mult*70,mult*45],
+        fill:true,backgroundColor:COLORS[i]+'33',borderColor:COLORS[i],
+      }))},
+    options:{responsive:true,plugins:{legend:{position:'top'}}}});
+
+  // Medicine category pie
+  mkChart('medCatChart',{type:'doughnut',
+    data:{labels:MED_CATS,datasets:[{
+      data:MED_CATS.map(c=>(BASE_DEMANDS[c]||{base:200}).base),
+      backgroundColor:COLORS,
+    }]},options:{responsive:true,plugins:{legend:{position:'right'}}}});
+}
+
+/* ═══════════════════════════════════════════════════════
+   REGIONS
+═══════════════════════════════════════════════════════ */
+function loadRegion(region){
+  document.getElementById('region-loader').classList.add('active');
+  document.getElementById('region-content').innerHTML='';
+  setTimeout(()=>{
+    const districts=DISTRICTS[region]||[];
+    const html=`
+      <div class="row g-3 mb-3">
+        <div class="col-md-4"><div class="card p-3 h-100">
+          <h6 class="fw-bold">Districts</h6>
+          ${districts.map(d=>`<div class="d-flex justify-content-between py-1 border-bottom">
+            <span>${d}</span>
+            <button class="btn btn-sm btn-outline-primary" onclick="quickOptimize('${region}','${d}')">Optimize</button>
+          </div>`).join('')}
+        </div></div>
+        <div class="col-md-4"><div class="card p-3 h-100">
+          <h6 class="fw-bold">Weather Profile</h6>
+          ${Object.entries(WEATHER[region]||{}).map(([s,w])=>`
+            <div class="mb-1"><span class="badge badge-season" style="background:${SEASON_COLORS[s]||'#555'}">${s}</span> ${w}</div>`).join('')}
+        </div></div>
+        <div class="col-md-4"><div class="card p-3 h-100">
+          <h6 class="fw-bold">Regional Stats</h6>
+          <p><strong>Demand Multiplier:</strong> ${REGION_MULT[region]}x</p>
+          <p><strong>Districts:</strong> ${districts.length}</p>
+          <p><strong>Key Season:</strong> Monsoon</p>
+          <p><strong>Top Disease Risk:</strong> Malaria / Dengue</p>
+        </div></div>
+      </div>
+      <div class="card">
+        <div class="card-header bg-white">Estimated Monthly Demand by Category — ${region} Region</div>
+        <div class="card-body"><canvas id="regionDemChart" height="160"></canvas></div>
+      </div>`;
+    document.getElementById('region-loader').classList.remove('active');
+    document.getElementById('region-content').innerHTML=html;
+
+    const mult=REGION_MULT[region]||1;
+    mkChart('regionDemChart',{type:'bar',
+      data:{labels:MED_CATS,datasets:[{
+        label:'Avg Monthly Demand',
+        data:MED_CATS.map(c=>Math.round((BASE_DEMANDS[c]||{base:200}).base*mult)),
+        backgroundColor:COLORS,
+      }]},options:{responsive:true,scales:{y:{beginAtZero:true}}}});
+  },400);
+}
+
+function quickOptimize(region,district){
+  document.getElementById('opt-region').value=region;
+  updateDistrictDropdown();
+  setTimeout(()=>{ document.getElementById('opt-district').value=district; },50);
+  document.getElementById('opt-medicine').value='Antipyretics';
+  showSection('optimize');
+  setTimeout(runOptimization,100);
+}
+
+/* ═══════════════════════════════════════════════════════
+   DROPDOWN HELPERS
+═══════════════════════════════════════════════════════ */
+function populateDistricts(regionSel, districtSel){
+  const region=document.getElementById(regionSel).value;
+  const dd=document.getElementById(districtSel);
+  dd.innerHTML=(DISTRICTS[region]||[]).map(d=>`<option>${d}</option>`).join('');
+}
+function updateDistrictDropdown(){ populateDistricts('opt-region','opt-district'); }
+function updateFcDistrictDropdown(){ populateDistricts('fc-region','fc-district'); }
+function updateSalesDistrictDropdown(){ populateDistricts('sales-region','sales-district'); }
+
+/* ═══════════════════════════════════════════════════════
+   OPTIMIZE (Q-LEARNING)
+═══════════════════════════════════════════════════════ */
+function runOptimization(){
+  const region  = document.getElementById('opt-region').value;
+  const district= document.getElementById('opt-district').value;
+  const medCat  = document.getElementById('opt-medicine').value;
+  const episodes= parseInt(document.getElementById('opt-episodes').value)||300;
+  const holdCost= parseFloat(document.getElementById('opt-holding').value)||2;
+  const shortCost=parseFloat(document.getElementById('opt-shortage').value)||15;
+
+  document.getElementById('opt-loader').classList.add('active');
+  document.getElementById('opt-results').style.display='none';
+
+  setTimeout(()=>{
+    const res = runQLearning(region, district, medCat, episodes, holdCost, shortCost);
+
+    document.getElementById('opt-loader').classList.remove('active');
+    document.getElementById('opt-results').style.display='block';
+
+    // KPIs
+    document.getElementById('opt-kpis').innerHTML=`
+      <div class="col-md-3"><div class="card text-center p-3">
+        <h4 class="text-primary">${res.serviceLevel}%</h4><p class="mb-0 text-muted">Service Level</p></div></div>
+      <div class="col-md-3"><div class="card text-center p-3">
+        <h4 class="text-success">${res.avgOrder}</h4><p class="mb-0 text-muted">Avg Reorder Qty</p></div></div>
+      <div class="col-md-3"><div class="card text-center p-3">
+        <h4 class="text-warning">${res.stockouts.filter(x=>x>0).length}</h4><p class="mb-0 text-muted">Stockout Periods</p></div></div>
+      <div class="col-md-3"><div class="card text-center p-3">
+        <h4 class="text-danger">${res.data.demand.length}</h4><p class="mb-0 text-muted">Periods Trained</p></div></div>`;
+
+    // Demand vs reorder chart
+    const labels=res.data.dates.slice(0,-1);
+    mkChart('optDemandChart',{type:'line',data:{labels,datasets:[
+      {label:'Actual Demand',data:res.data.demand.slice(0,-1),borderColor:'#1a237e',fill:false,tension:0.3,pointRadius:2},
+      {label:'Reorder Qty',data:res.orders,borderColor:'#e53935',fill:false,tension:0.3,borderDash:[5,5],pointRadius:2},
+      {label:'Forecast',data:res.forecast.slice(0,-1),borderColor:'#43a047',fill:false,tension:0.3,pointRadius:1,borderWidth:1},
+    ]},options:{responsive:true,plugins:{legend:{position:'top'}}}});
+
+    // Reward curve
+    const epLabels=res.rewardsPerEpisode.map((_,i)=>i+1);
+    mkChart('rewardChart',{type:'line',data:{labels:epLabels,datasets:[{
+      label:'Cumulative Reward',data:res.rewardsPerEpisode,
+      borderColor:'#8e24aa',fill:true,backgroundColor:'#8e24aa22',tension:0.4,pointRadius:0,
+    }]},options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},scales:{y:{beginAtZero:false}}}});
+
+    // Table
+    const rows=res.data.dates.slice(0,-1).map((date,i)=>{
+      const so=res.stockouts[i]||0;
+      return `<tr>
+        <td>${date}</td>
+        <td><span class="badge badge-season" style="background:${SEASON_COLORS[res.data.seasons[i]]||'#555'}">${res.data.seasons[i]}</span></td>
+        <td><small>${res.data.weather[i]}</small></td>
+        <td><small>${res.data.diseases[i]}</small></td>
+        <td>${res.data.demand[i]}</td>
+        <td><strong>${res.orders[i]||0}</strong></td>
+        <td>${so>0?`<span class="text-danger">${so}</span>`:'<span class="text-success">0</span>'}</td>
+      </tr>`;
+    });
+    document.getElementById('opt-table').innerHTML=rows.join('');
+  }, 100);
+}
+
+/* ═══════════════════════════════════════════════════════
+   FORECAST
+═══════════════════════════════════════════════════════ */
+function movingAvg(demand,w=3){
+  return demand.map((d,i)=>{
+    const slice=demand.slice(Math.max(0,i-w),i);
+    return slice.length?Math.round(slice.reduce((a,b)=>a+b)/slice.length):d;
+  });
+}
+function holtSmoothing(demand,alpha=0.35,beta=0.2){
+  const S=[demand[0]], T=[demand[1]-demand[0]], f=[demand[0]];
+  for(let t=1;t<demand.length;t++){
+    const sn=alpha*demand[t]+(1-alpha)*(S[t-1]+T[t-1]);
+    const tn=beta*(sn-S[t-1])+(1-beta)*T[t-1];
+    S.push(sn); T.push(tn); f.push(Math.round(sn+tn));
+  }
+  return f;
+}
+function rmse(a,p){
+  if(a.length<2)return 0;
+  const e=a.slice(1).map((v,i)=>(v-p[i])**2);
+  return Math.sqrt(e.reduce((x,y)=>x+y)/e.length).toFixed(1);
+}
+
+function runForecast(){
+  const region  = document.getElementById('fc-region').value;
+  const district= document.getElementById('fc-district').value;
+  const medCat  = document.getElementById('fc-medicine').value;
+
+  document.getElementById('fc-loader').classList.add('active');
+  document.getElementById('fc-results').style.display='none';
+
+  setTimeout(()=>{
+    const d      = generateDemand(region,district,medCat);
+    const es     = expSmoothing(d.demand);
+    const ma     = movingAvg(d.demand);
+    const trend  = holtSmoothing(d.demand);
+
+    document.getElementById('fc-loader').classList.remove('active');
+    document.getElementById('fc-results').style.display='block';
+
+    document.getElementById('fc-metrics').innerHTML=`
+      <div class="col-md-4"><div class="card text-center p-3">
+        <h5>ES RMSE: ${rmse(d.demand,es)}</h5><p class="text-muted mb-0">Exponential Smoothing</p></div></div>
+      <div class="col-md-4"><div class="card text-center p-3">
+        <h5>MA RMSE: ${rmse(d.demand,ma)}</h5><p class="text-muted mb-0">Moving Average</p></div></div>
+      <div class="col-md-4"><div class="card text-center p-3">
+        <h5>Trend RMSE: ${rmse(d.demand,trend)}</h5><p class="text-muted mb-0">Holt's Trend</p></div></div>`;
+
+    mkChart('forecastChart',{type:'line',data:{labels:d.dates,datasets:[
+      {label:'Actual',data:d.demand,borderColor:'#1a237e',fill:false,tension:0.3,pointRadius:2},
+      {label:'ES Forecast',data:es,borderColor:'#e53935',fill:false,tension:0.3,pointRadius:0,borderDash:[4,4]},
+      {label:'Moving Avg',data:ma,borderColor:'#43a047',fill:false,tension:0.3,pointRadius:0,borderDash:[8,4]},
+      {label:'Holt Trend',data:trend,borderColor:'#fb8c00',fill:false,tension:0.3,pointRadius:0,borderDash:[2,4]},
+    ]},options:{responsive:true,plugins:{legend:{position:'top'}}}});
+  },300);
+}
+
+/* ═══════════════════════════════════════════════════════
+   SALES
+═══════════════════════════════════════════════════════ */
+function runSalesAnalysis(){
+  const region  = document.getElementById('sales-region').value;
+  const district= document.getElementById('sales-district').value;
+  document.getElementById('sales-loader').classList.add('active');
+  document.getElementById('sales-results').style.display='none';
+
+  setTimeout(()=>{
+    const catTotals={};
+    const monthlyMap={};
+    for(const cat of MED_CATS){
+      const d=generateDemand(region,district,cat);
+      catTotals[cat]=d.demand.reduce((a,b)=>a+b,0);
+      d.dates.forEach((date,i)=>{
+        const ym=date.slice(0,7);
+        if(!monthlyMap[ym]) monthlyMap[ym]={};
+        monthlyMap[ym][cat]=(monthlyMap[ym][cat]||0)+d.demand[i];
+      });
+    }
+    const months=Object.keys(monthlyMap).sort();
+    document.getElementById('sales-loader').classList.remove('active');
+    document.getElementById('sales-results').style.display='block';
+
+    mkChart('salesChart',{type:'line',
+      data:{labels:months,datasets:MED_CATS.slice(0,6).map((cat,i)=>({
+        label:cat,data:months.map(m=>monthlyMap[m][cat]||0),
+        borderColor:COLORS[i],fill:false,tension:0.3,pointRadius:1,
+      }))},options:{responsive:true,plugins:{legend:{position:'top'}}}});
+
+    mkChart('salesPieChart',{type:'pie',
+      data:{labels:MED_CATS,datasets:[{
+        data:MED_CATS.map(c=>catTotals[c]),backgroundColor:COLORS,
+      }]},options:{responsive:true,plugins:{legend:{position:'right'}}}});
+  },300);
+}
+
+/* ═══════════════════════════════════════════════════════
+   DISEASES
+═══════════════════════════════════════════════════════ */
+function initDiseases(){
+  // Disease map
+  const DISEASE_MED_MAP_DISPLAY = {
+    "Influenza":"Antipyretics","Pneumonia":"Antibiotics","Bronchitis":"Bronchodilators",
+    "Common Cold":"Antihistamines","Allergic Rhinitis":"Antihistamines","Conjunctivitis":"Eye Drops",
+    "Asthma":"Bronchodilators","Diarrhea":"ORS & Antidiarrheals","Typhoid":"Antibiotics",
+    "Heat Stroke":"IV Fluids","Food Poisoning":"ORS & Antidiarrheals","Malaria":"Antimalarials",
+    "Dengue":"Antipyretics","Cholera":"ORS & Antidiarrheals","Leptospirosis":"Antibiotics",
+    "Chikungunya":"Antipyretics","Viral Fever":"Antipyretics",
+  };
+  document.getElementById('disease-map-box').innerHTML=
+    Object.entries(DISEASE_MED_MAP_DISPLAY).map(([dis,med])=>`
+      <div class="d-flex justify-content-between py-1 border-bottom">
+        <span>🦠 ${dis}</span>
+        <span class="badge bg-primary">${med}</span>
+      </div>`).join('');
+
+  // Weather box
+  document.getElementById('weather-box').innerHTML=
+    Object.entries(WEATHER).map(([reg,seasons])=>`
+      <div class="mb-2"><strong>${reg}:</strong>
+        ${Object.entries(seasons).map(([s,w])=>`<span class="tag bg-light border">${s}: ${w}</span>`).join('')}
+      </div>`).join('');
+
+  // Season boost chart
+  mkChart('seasonBoostChart',{type:'bar',
+    data:{labels:Object.keys(SEASON_BOOST),
+      datasets:[{label:'Demand Boost Multiplier',
+        data:Object.values(SEASON_BOOST),
+        backgroundColor:Object.keys(SEASON_BOOST).map(s=>SEASON_COLORS[s]||'#555'),
+      }]},options:{responsive:true,scales:{y:{beginAtZero:true,max:2}}}});
+}
+
+/* ═══════════════════════════════════════════════════════
+   MEDICINE SEARCH (local simulation)
+═══════════════════════════════════════════════════════ */
+const SAMPLE_MEDICINES = [
+  {name:"Paracetamol 500mg",category:"Antipyretics",price:"₹25",manufacturer:"Cipla"},
+  {name:"Amoxicillin 500mg",category:"Antibiotics",price:"₹48",manufacturer:"Sun Pharma"},
+  {name:"Salbutamol Inhaler",category:"Bronchodilators",price:"₹120",manufacturer:"GSK"},
+  {name:"Cetirizine 10mg",category:"Antihistamines",price:"₹18",manufacturer:"Dr. Reddy's"},
+  {name:"ORS Sachet",category:"ORS & Antidiarrheals",price:"₹10",manufacturer:"WHO-ORS"},
+  {name:"Chloroquine 250mg",category:"Antimalarials",price:"₹35",manufacturer:"IPCA"},
+  {name:"Ringer Lactate 500ml",category:"IV Fluids",price:"₹60",manufacturer:"Baxter"},
+  {name:"Moxifloxacin Eye Drops",category:"Eye Drops",price:"₹90",manufacturer:"Alcon"},
+  {name:"Metformin 500mg",category:"Antidiabetics",price:"₹22",manufacturer:"USV"},
+  {name:"Atorvastatin 10mg",category:"Cardiovascular",price:"₹38",manufacturer:"Lupin"},
+  {name:"Vitamin D3 60000IU",category:"Vitamins & Supplements",price:"₹55",manufacturer:"Abbott"},
+  {name:"Ibuprofen 400mg",category:"Analgesics",price:"₹20",manufacturer:"Mankind"},
+  {name:"Azithromycin 500mg",category:"Antibiotics",price:"₹55",manufacturer:"Cipla"},
+  {name:"Doxycycline 100mg",category:"Antibiotics",price:"₹40",manufacturer:"Pfizer"},
+  {name:"Artemether Lumefantrine",category:"Antimalarials",price:"₹120",manufacturer:"Novartis"},
+  {name:"Oseltamivir 75mg",category:"Antipyretics",price:"₹200",manufacturer:"Roche"},
+];
+
+function searchMedicines(){
+  const q=document.getElementById('med-search-input').value.toLowerCase().trim();
+  const results=q ? SAMPLE_MEDICINES.filter(m=>m.name.toLowerCase().includes(q)||m.category.toLowerCase().includes(q))
+                  : SAMPLE_MEDICINES;
+  document.getElementById('med-results').innerHTML=`
+    <div class="card">
+      <div class="card-header bg-white">Results (${results.length})</div>
+      <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+          <thead><tr><th>Name</th><th>Category</th><th>Price</th><th>Manufacturer</th></tr></thead>
+          <tbody>${results.map(m=>`
+            <tr><td>${m.name}</td>
+            <td><span class="badge bg-secondary">${m.category}</span></td>
+            <td>${m.price}</td><td>${m.manufacturer}</td></tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+/* ═══════════════════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════════════════ */
+window.addEventListener('DOMContentLoaded',()=>{
+  updateDistrictDropdown();
+  updateFcDistrictDropdown();
+  updateSalesDistrictDropdown();
+  initDashboard();
+  initDiseases();
+  loadRegion('North');
+  searchMedicines();
+});
+</script>
+</body>
+</html>
